@@ -1,29 +1,50 @@
-import os
+import time
 import requests
-from telethon import TelegramClient, events
-
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://sarny-threats.optio-hoya.workers.dev")
+from bs4 import BeautifulSoup
 
 CHANNELS = ['rivne_radar', 'rivne_golovne', 'kpszsu', 'zahid_informue']
+WEBHOOK_URL = 'https://sarny-threats.optio-hoya.workers.dev'
 
-client = TelegramClient('sarny_session', API_ID, API_HASH)
+seen_messages = set()
 
-@client.on(events.NewMessage(chats=CHANNELS))
-async def handler(event):
-    if event.message and event.message.text:
-        payload = {
-            "channel_post": {
-                "text": event.message.text
-            }
-        }
+def check_channels():
+    for channel in CHANNELS:
+        url = f'https://t.me/s/{channel}'
         try:
-            requests.post(WEBHOOK_URL, json=payload, timeout=5)
-            print(f"Переслано: {event.message.text[:30]}...")
-        except Exception as e:
-            print(f"Помилка відправки: {e}")
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                continue
 
-print("Скрипт моніторингу загроз запущено...")
-client.start()
-client.run_until_disconnected()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            posts = soup.find_all('div', class_='tgme_widget_message')
+            
+            for post in posts:
+                post_id = post.get('data-post')
+                if not post_id or post_id in seen_messages:
+                    continue
+                
+                text_elem = post.find('div', class_='tgme_widget_message_text')
+                text = text_elem.get_text(separator='\n') if text_elem else ""
+                
+                seen_messages.add(post_id)
+                
+                payload = {
+                    "channel": channel,
+                    "post_id": post_id,
+                    "text": text
+                }
+                
+                requests.post(WEBHOOK_URL, json=payload, timeout=5)
+                print(f"New post from {channel}: {post_id}")
+                
+        except Exception as e:
+            print(f"Error checking {channel}: {e}")
+
+if __name__ == '__main__':
+    print("Parser started!")
+    while True:
+        if len(seen_messages) > 1000:
+            seen_messages.clear()
+        check_channels()
+        time.sleep(30)
