@@ -15,7 +15,7 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or os.environ.get("CLOUDFLARE_WEBHOO
 
 CHANNELS = ['rivne_radar', 'rivne_golovne', 'kpszsu', 'zahid_informue']
 
-# 1. Легкий веб-сервер на аіохттп для підтримки статусу Live на Render
+# 1. Вебсервер для підтримки статусу Live на Render
 async def handle_ping(request):
     return web.Response(text="Bot and Telethon client are active.")
 
@@ -34,7 +34,7 @@ def send_to_cloudflare(channel, text):
         print(f"[Webhook Error] Помилка відправки: {e}")
 
 async def main():
-    print("=== Запуск комбінованого сервісу Telethon + Web ==[span_1](start_span)[span_1](end_span)")
+    print("=== Запуск комбінованого сервісу Telethon + Web ==")
     
     if not BOT_TOKEN:
         print("[Error] TELEGRAM_BOT_TOKEN не задано!")
@@ -54,7 +54,7 @@ async def main():
     print(f"[Telethon] Підключення до Telegram та моніторинг: {CHANNELS}")
     await client.start(bot_token=BOT_TOKEN)
 
-    # Запускаємо вебсервер у тому ж асинхронному циклі, щоб Render бачив порт
+    # Запускаємо вебсервер у тому ж асинхронному циклі
     app = web.Application()
     app.router.add_get('/', handle_ping)
     runner = web.AppRunner(app)
@@ -65,7 +65,7 @@ async def main():
     await site.start()
     print(f"[Web] Вебсервер успішно працює на порту {port}")
 
-д# Працюємо безперервно
+    # Працюємо безперервно
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
