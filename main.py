@@ -6,18 +6,15 @@ import requests
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
 
-# Примусово вимикаємо затримку виведення логів для Render
 sys.stdout.reconfigure(line_buffering=True)
 
-# 1. Налаштування Telegram та Cloudflare з змінних оточення (Environment Variables)
-API_ID = int(os.environ.get("TELEGRAM_API_ID", 0))
-API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
-WEBHOOK_URL = os.environ.get("CLOUDFLARE_WEBHOOK_URL", "")
+# Отримуємо значення за вашими назвами з Render
+API_ID = int(os.environ.get("API_ID", 0))
+API_HASH = os.environ.get("API_HASH", "")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
 
-# Список каналів для відстеження
 CHANNELS = ['rivne_radar', 'rivne_golovne', 'kpszsu', 'zahid_informue']
 
-# 2. Легкий веб-сервер для статусу "Live" на Render
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -30,10 +27,9 @@ def run_health_server():
     print(f"[Web] Сервер перевірки стану запущено на порту {port}")
     server.serve_forever()
 
-# 3. Функція відправки сповіщення на Cloudflare Worker
 def send_to_cloudflare(channel, text):
     if not WEBHOOK_URL:
-        print("[Webhook Error] CLOUDFLARE_WEBHOOK_URL не налаштовано!")
+        print("[Webhook Error] WEBHOOK_URL не налаштовано!")
         return
     payload = {
         "channel": channel,
@@ -45,7 +41,6 @@ def send_to_cloudflare(channel, text):
     except Exception as e:
         print(f"[Webhook Error] Помилка відправки: {e}")
 
-# 4. Основний процес Telethon
 async def start_telegram_monitoring():
     print("[Telethon] Ініціалізація Telegram клієнта...")
     
@@ -58,7 +53,6 @@ async def start_telegram_monitoring():
         message_text = event.raw_text
         print(f"[New Message] З каналу @{channel_name}: {message_text[:50]}...")
         
-        # Відправляємо текст у Cloudflare
         send_to_cloudflare(channel_name, message_text)
 
     print(f"[Telethon] Запуск моніторингу каналів: {CHANNELS}")
@@ -68,11 +62,9 @@ async def start_telegram_monitoring():
 if __name__ == "__main__":
     print("=== Запуск системи моніторингу та пересилки ===")
     
-    # Запускаємо веб-сервер у фоновому потоці
     web_thread = threading.Thread(target=run_health_server, daemon=True)
     web_thread.start()
 
-    # Запускаємо асинхронний Telethon клієнт у головному потоці
     try:
         asyncio.run(start_telegram_monitoring())
     except Exception as err:
