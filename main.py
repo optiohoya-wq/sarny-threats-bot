@@ -23,8 +23,8 @@ def monitoring_loop():
     
     while True:
         try:
-            # Тут виконується перевірка каналів
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S'] Перевірка каналів: {channels}")
+            current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"[{current_time}] Перевірка каналів: {channels}")
             
             # Перевірка відбувається раз на 30 секунд
             time.sleep(30)
