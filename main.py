@@ -1,15 +1,13 @@
 import os
 import sys
 import asyncio
-import threading
 import requests
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
+from aiohttp import web
 
-# Примусово вимикаємо буферизацію логів для Render
+# Примусово вимикаємо буферизацію логів
 sys.stdout.reconfigure(line_buffering=True)
 
-# Зчитуємо змінні оточення
 API_ID = int(os.environ.get("API_ID") or os.environ.get("TELEGRAM_API_ID", 0))
 API_HASH = os.environ.get("API_HASH") or os.environ.get("TELEGRAM_API_HASH", "")
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -17,17 +15,9 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL") or os.environ.get("CLOUDFLARE_WEBHOO
 
 CHANNELS = ['rivne_radar', 'rivne_golovne', 'kpszsu', 'zahid_informue']
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot and Telethon client are active.")
-
-def run_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    print(f"[Web] Сервер перевірки стану запущено на порту {port}")
-    server.serve_forever()
+# 1. Легкий веб-сервер на аіохттп для підтримки статусу Live на Render
+async def handle_ping(request):
+    return web.Response(text="Bot and Telethon client are active.")
 
 def send_to_cloudflare(channel, text):
     if not WEBHOOK_URL:
@@ -43,13 +33,14 @@ def send_to_cloudflare(channel, text):
     except Exception as e:
         print(f"[Webhook Error] Помилка відправки: {e}")
 
-async def start_telegram_monitoring():
-    print("[Telethon] Ініціалізація Telegram бота...")
+async def main():
+    print("=== Запуск комбінованого сервісу Telethon + Web ==[span_1](start_span)[span_1](end_span)")
     
     if not BOT_TOKEN:
-        print("[Error] TELEGRAM_BOT_TOKEN не задано в середовищі Render!")
+        print("[Error] TELEGRAM_BOT_TOKEN не задано!")
         return
 
+    # Ініціалізація Telegram клієнта
     client = TelegramClient('sarny_bot_session', API_ID, API_HASH)
 
     @client.on(events.NewMessage(chats=CHANNELS))
@@ -60,18 +51,22 @@ async def start_telegram_monitoring():
         print(f"[New Message] З каналу @{channel_name}: {message_text[:50]}...")
         send_to_cloudflare(channel_name, message_text)
 
-    print(f"[Telethon] Підключення до Telegram через Bot Token та запуск моніторингу каналів: {CHANNELS}")
-    
+    print(f"[Telethon] Підключення до Telegram та моніторинг: {CHANNELS}")
     await client.start(bot_token=BOT_TOKEN)
+
+    # Запускаємо вебсервер у тому ж асинхронному циклі, щоб Render бачив порт
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"[Web] Вебсервер успішно працює на порту {port}")
+
+д# Працюємо безперервно
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    print("=== Запуск системи моніторингу та пересилки ===")
-    
-    web_thread = threading.Thread(target=run_health_server, daemon=True)
-    web_thread.start()
-
-    try:
-        asyncio.run(start_telegram_monitoring())
-    except Exception as err:
-        print(f"[Fatal Error] Помилка виконання: {err}")
+    asyncio.run(main())
