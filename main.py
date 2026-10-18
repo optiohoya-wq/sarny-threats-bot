@@ -1,7 +1,11 @@
 import os
+import sys
 import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Усуваємо затримку буферизації логів, щоб вони одразу з'являлися на Render
+sys.stdout.reconfigure(line_buffering=True)
 
 # --- Веб-сервер для утримання Render у стані Live ---
 class SimpleHandler(BaseHTTPRequestHandler):
@@ -33,6 +37,7 @@ def monitoring_loop():
             time.sleep(15)
 
 if __name__ == "__main__":
+    print("Скрипт стартує...")
     # Запускаємо веб-сервер в окремому потоці, щоб Render бачив активний порт
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
