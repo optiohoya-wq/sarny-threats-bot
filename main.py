@@ -9,7 +9,7 @@ from telethon import TelegramClient, events
 # Примусово вимикаємо буферизацію логів для Render
 sys.stdout.reconfigure(line_buffering=True)
 
-# Зчитуємо змінні оточення (працює як з назвами API_ID/API_HASH, так і з TELEGRAM_...)
+# Зчитуємо змінні оточення
 API_ID = int(os.environ.get("API_ID") or os.environ.get("TELEGRAM_API_ID", 0))
 API_HASH = os.environ.get("API_HASH") or os.environ.get("TELEGRAM_API_HASH", "")
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -46,7 +46,10 @@ def send_to_cloudflare(channel, text):
 async def start_telegram_monitoring():
     print("[Telethon] Ініціалізація Telegram бота...")
     
-    # Створюємо клієнт із сесією бота
+    if not BOT_TOKEN:
+        print("[Error] TELEGRAM_BOT_TOKEN не задано в середовищі Render!")
+        return
+
     client = TelegramClient('sarny_bot_session', API_ID, API_HASH)
 
     @client.on(events.NewMessage(chats=CHANNELS))
@@ -59,7 +62,6 @@ async def start_telegram_monitoring():
 
     print(f"[Telethon] Підключення до Telegram через Bot Token та запуск моніторингу каналів: {CHANNELS}")
     
-    # Авторизація за допомогою бот-токена (працює на хмарі без введення телефону)
     await client.start(bot_token=BOT_TOKEN)
     await client.run_until_disconnected()
 
